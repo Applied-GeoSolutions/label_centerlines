@@ -77,7 +77,7 @@ def worker(
 
 def run(
     input_shp,
-    output_geojson,
+    output_file,
     segmentize_maxlen,
     max_points,
     simplification,
@@ -89,7 +89,7 @@ def run(
         out_schema = inp_polygons.schema.copy()
         out_schema['geometry'] = "LineString"
         with fiona.open(
-            output_geojson,
+            output_file,
             "w",
             schema=out_schema,
             crs=inp_polygons.crs,
@@ -141,7 +141,7 @@ if __name__ == "__main__":
         help="input polygons"
         )
     parser.add_argument(
-        "output_geojson",
+        "output_file",
         type=str,
         help="output centerlines"
         )
@@ -179,7 +179,7 @@ if __name__ == "__main__":
 
     run(
         parsed.input_shp,
-        parsed.output_geojson,
+        parsed.output_file,
         parsed.segmentize_maxlen,
         parsed.max_points,
         parsed.simplification,
