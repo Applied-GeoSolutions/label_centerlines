@@ -45,10 +45,10 @@ debug_output = {}
 
 def get_centerlines_from_geom(
     geometry,
-    segmentize_maxlen=0.5,
-    max_points=3000,
-    simplification=0.05,
-    smooth_sigma=5,
+    segmentize_maxlen,
+    max_points,
+    simplification,
+    smooth_sigma,
     debug=False
     ):
     """
