@@ -6,7 +6,7 @@ from create_centerlines import run
 def main():
 
     input_shp = "test/output_roads_1.shp"
-    output_driver = "ESRI Shapefile"
+    output_driver = "GeoJSON"
 
     max_points = [3000, 6000, 1500]
     simplification = [0.05, 0.1, 0.025]
@@ -14,13 +14,18 @@ def main():
     segmentize_maxlen = [0.5, 1.0, 0.25]
     morpho_dist = [0.0, 10.]
     
-    params = product(max_points, simplification, smooth, segmentize_maxlen)
+    params = product(
+        max_points,
+        simplification,
+        smooth,
+        segmentize_maxlen,
+        morpho_dist
+    )
 
     for param in params:
-
         print param
         
-        max_points, simplification, smooth, segmentize_maxlen = param
+        max_p, simp, smoo, seg, morph = param
 
         outstr = "_".join([str(p) for p in param])
 
@@ -31,11 +36,11 @@ def main():
         run(
             input_shp,
             output_file,
-            segmentize_maxlen,
-            max_points,
-            simplification,
-            smooth,
-            morpho_dist,
+            seg,
+            max_p,
+            simp,
+            smoo,
+            morph,
             output_driver
         )
         
