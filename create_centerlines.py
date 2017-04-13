@@ -40,10 +40,18 @@ def worker(
     max_points,
     simplification,
     smooth_sigma,
+    morpho_dist,
     feature
     ):
 
     geom = shape(feature['geometry'])
+
+    if morpho_dist:
+        # dilate and erode the feature to smooth it
+        geom = geom.buffer(morpho_dist)
+        geom = geom.buffer(-morpho_dist)
+
+    
     for name_field in ["name", "Name", "NAME"]:
         if name_field in feature["properties"]:
             feature_name = feature["properties"][name_field]
@@ -82,6 +90,7 @@ def run(
     max_points,
     simplification,
     smooth_sigma,
+    morpho_dist,
     driver
     ):
 
@@ -95,13 +104,15 @@ def run(
             crs=inp_polygons.crs,
             driver=driver
             ) as out_centerlines:
+
             pool = multiprocessing.Pool()
             func = partial(
                 worker,
                 segmentize_maxlen,
                 max_points,
                 simplification,
-                smooth_sigma
+                smooth_sigma,
+                morpho_dist
             )
             try:
                 feature_count = 0
@@ -133,7 +144,6 @@ def run(
 
 
 if __name__ == "__main__":
-
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "input_shp",
@@ -170,10 +180,17 @@ if __name__ == "__main__":
         default=5
         )
     parser.add_argument(
+        "--morpho_dist",
+        type=float,
+        help="distance for erosion and dilation",
+        default=0.0
+        )
+    parser.add_argument(
         "--output_driver",
         type=str,
-        help="write to 'ESRI Shapefile' (default) or 'GeoJSON'",
-        default="ESRI Shapefile"
+        help="write to 'ESRI Shapefile' or 'GeoJSON' (default)",
+        #default="ESRI Shapefile"
+        default="GeoJSON"
     )
     parsed = parser.parse_args(sys.argv[1:])
 
@@ -184,5 +201,6 @@ if __name__ == "__main__":
         parsed.max_points,
         parsed.simplification,
         parsed.smooth,
+        parsed.morpho_dist,
         parsed.output_driver
     )
