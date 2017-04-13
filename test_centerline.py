@@ -25,7 +25,11 @@ def main():
     for param in params:
         print param
         
-        max_p, simp, smoo, seg, morph = param
+        (max_points,
+         simplification,
+         smooth,
+         segmentize_maxlen,
+         morpho_dist) = param
 
         outstr = "_".join([str(p) for p in param])
 
@@ -36,15 +40,13 @@ def main():
         run(
             input_shp,
             output_file,
-            seg,
-            max_p,
-            simp,
-            smoo,
-            morph,
+            segmentize_maxlen,
+            max_points,
+            simplification,
+            smoothg,
+            morpho_dist,
             output_driver
         )
-        
-
-        
+         
 if __name__ == "__main__":
     main()

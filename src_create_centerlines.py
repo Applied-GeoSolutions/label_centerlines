@@ -64,12 +64,15 @@ def get_centerlines_from_geom(
             )
 
     if geometry.geom_type == "MultiPolygon":
+        # recursion so that code below operates on Polygon objects
+        # TODO: fix this so it doesn't call itself twice
         out_centerlines = MultiLineString([
             get_centerlines_from_geom(subgeom, segmentize_maxlen)
             for subgeom in geometry
             if get_centerlines_from_geom(subgeom, segmentize_maxlen) != None
             ])
         return out_centerlines
+
     else:
 
         # Convert Polygon to Linestring.
@@ -117,8 +120,8 @@ def get_centerlines_from_geom(
             )
 
         # The next three steps are the most processing intensive and probably
-        # not the most efficient method to get the skeleton centerline. If you
-        # have any recommendations, I would be very happy to know.
+        # not the most efficient method to get the skeleton centerline.
+        # If you have any recommendations, I would be very happy to know.
 
         # Convert to networkx graph.
         graph = graph_from_voronoi(vor, geometry)
