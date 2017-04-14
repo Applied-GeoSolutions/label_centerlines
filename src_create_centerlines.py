@@ -65,16 +65,15 @@ def get_centerlines_from_geom(
 
     if geometry.geom_type == "MultiPolygon":
         # recursion so that code below operates on Polygon objects
-        # TODO: fix this so it doesn't call itself twice
-        out_centerlines = MultiLineString([
-            get_centerlines_from_geom(subgeom, segmentize_maxlen)
-            for subgeom in geometry
-            if get_centerlines_from_geom(subgeom, segmentize_maxlen) != None
-            ])
+        centerline_geoms = []
+        for subgeom in geometry:
+            geom = get_centerlines_from_geom(subgeom, segmentize_maxlen)
+            if geom is not None:
+                centerline_geoms.append(geom)
+        out_centerlines = MultiLineString(centerline_geoms)
         return out_centerlines
 
     else:
-
         # Convert Polygon to Linestring.
         if len(geometry.interiors) > 0:
             boundary = geometry.exterior
@@ -93,11 +92,12 @@ def get_centerlines_from_geom(
         ogr_boundary.Segmentize(segmentize_maxlen)
         segmentized = loads(ogr_boundary.ExportToWkt())
 
-        # Get points.
+        # Get points
         points = segmentized.coords
 
         # Simplify segmentized geometry if necessary. This step is required
-        # as huge geometries slow down the centerline extraction significantly.
+        # as huge geometries slow down the centerline extraction significantly
+
         tolerance = simplification
         while len(points) > max_points:
             # If geometry is too large, apply simplification until geometry
@@ -154,12 +154,15 @@ def get_centerlines_from_geom(
         # centerline = simplified
 
 
-        # Smooth out geometry.
-        centerline_smoothed = smooth_linestring(centerline, smooth_sigma)
+        # Smooth out geometry
+        if smooth_sigma > 0.:
+            centerline_smoothed = smooth_linestring(centerline, smooth_sigma)
+        else:
+            centerline_smoothed = centerline
 
-        out_centerline = centerline_smoothed
+        #out_centerline = centerline_smoothed
 
-        return out_centerline
+        return centerline_smoothed
 
 
 def smooth_linestring(linestring, smooth_sigma):

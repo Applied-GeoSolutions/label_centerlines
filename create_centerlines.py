@@ -50,7 +50,6 @@ def worker(
         # dilate and erode the feature to smooth it
         geom = geom.buffer(morpho_dist)
         geom = geom.buffer(-morpho_dist)
-
     
     for name_field in ["name", "Name", "NAME"]:
         if name_field in feature["properties"]:
@@ -97,6 +96,8 @@ def run(
     with fiona.open(input_shp, "r") as inp_polygons:
         out_schema = inp_polygons.schema.copy()
         out_schema['geometry'] = "LineString"
+        if os.path.exists(output_file):
+            os.remove(output_file)
         with fiona.open(
             output_file,
             "w",
@@ -177,7 +178,7 @@ if __name__ == "__main__":
         "--smooth",
         type=int,
         help="smoothness of the output centerlines",
-        default=5
+        default=0
         )
     parser.add_argument(
         "--morpho_dist",
