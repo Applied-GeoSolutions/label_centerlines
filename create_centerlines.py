@@ -34,6 +34,7 @@ from functools import partial
 
 from src_create_centerlines import get_centerlines_from_geom
 
+NUMPROC = 10
 
 def worker(
     segmentize_maxlen,
@@ -106,7 +107,7 @@ def run(
             driver=driver
             ) as out_centerlines:
 
-            pool = multiprocessing.Pool()
+            pool = multiprocessing.Pool(processes=NUMPROC)
             func = partial(
                 worker,
                 segmentize_maxlen,
@@ -190,8 +191,8 @@ if __name__ == "__main__":
         "--output_driver",
         type=str,
         help="write to 'ESRI Shapefile' or 'GeoJSON' (default)",
-        #default="ESRI Shapefile"
-        default="GeoJSON"
+        default="ESRI Shapefile"
+        #default="GeoJSON"
     )
     parsed = parser.parse_args(sys.argv[1:])
 
