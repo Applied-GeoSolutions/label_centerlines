@@ -94,6 +94,10 @@ def run(
     driver
     ):
 
+    extensions = {'ESRI Shapefile': '.shp', 'GeoJSON': '.geoson'}
+    if os.path.splitext[1] != extensions[driver]:
+            output_file += extensions[driver]
+
     with fiona.open(input_shp, "r") as inp_polygons:
         out_schema = inp_polygons.schema.copy()
         out_schema['geometry'] = "LineString"
