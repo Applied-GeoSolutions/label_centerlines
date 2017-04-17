@@ -74,20 +74,19 @@ def get_centerlines_from_geom(
         return out_centerlines
 
     else:
-        # Convert Polygon to Linestring.
+        # Convert Polygon to Linestring
         if len(geometry.interiors) > 0:
             boundary = geometry.exterior
         else:
             boundary = geometry.boundary
 
-        # print list(boundary.coords)
         if debug:
             debug_output['original_points'] = MultiPoint([
                 point
                 for point in list(boundary.coords)
             ])
 
-        # Convert to OGR object and segmentize.
+        # Convert to OGR object and segmentize
         ogr_boundary = ogr.CreateGeometryFromWkb(boundary.wkb)
         ogr_boundary.Segmentize(segmentize_maxlen)
         segmentized = loads(ogr_boundary.ExportToWkt())

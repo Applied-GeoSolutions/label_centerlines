@@ -95,7 +95,7 @@ def run(
     ):
 
     extensions = {'ESRI Shapefile': '.shp', 'GeoJSON': '.geoson'}
-    if os.path.splitext[1] != extensions[driver]:
+    if os.path.splitext(input_shp)[1] != extensions[driver]:
             output_file += extensions[driver]
 
     with fiona.open(input_shp, "r") as inp_polygons:
