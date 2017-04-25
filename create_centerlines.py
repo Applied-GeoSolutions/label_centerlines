@@ -34,6 +34,8 @@ from functools import partial
 
 from src_create_centerlines import get_centerlines_from_geom
 
+from pdb import set_trace
+
 NUMPROC = 10
 
 def worker(
@@ -47,31 +49,37 @@ def worker(
 
     geom = shape(feature['geometry'])
 
-    if morpho_dist:
-        # dilate and erode the feature to smooth it
-        geom = geom.buffer(morpho_dist)
-        geom = geom.buffer(-morpho_dist)
-    
     for name_field in ["name", "Name", "NAME"]:
         if name_field in feature["properties"]:
             feature_name = feature["properties"][name_field]
             break
         else:
             feature_name = None
-    if feature_name:
-        print "processing", feature_name
+    print "processing", feature_name
+
+    #centerlines_geom = get_centerlines_from_geom(
+    #    geom,
+    #    segmentize_maxlen=segmentize_maxlen,
+    #    max_points=max_points,
+    #    simplification=simplification,
+    #    smooth_sigma=smooth_sigma,
+    #    morpho_dist=morpho_dist
+    #)
+
     try:
         centerlines_geom = get_centerlines_from_geom(
             geom,
             segmentize_maxlen=segmentize_maxlen,
             max_points=max_points,
             simplification=simplification,
-            smooth_sigma=smooth_sigma
+            smooth_sigma=smooth_sigma,
+            morpho_dist=morpho_dist
             )
     except TypeError as e:
         print e
     except:
         raise
+
     if centerlines_geom:
         return (
             feature_name,
@@ -94,9 +102,10 @@ def run(
     driver
     ):
 
-    extensions = {'ESRI Shapefile': '.shp', 'GeoJSON': '.geoson'}
-    if os.path.splitext(input_shp)[1] != extensions[driver]:
+    extensions = {'ESRI Shapefile': '.shp', 'GeoJSON': '.geojson'}
+    if os.path.splitext(output_file)[1] != extensions[driver]:
             output_file += extensions[driver]
+
 
     with fiona.open(input_shp, "r") as inp_polygons:
         out_schema = inp_polygons.schema.copy()
@@ -120,8 +129,17 @@ def run(
                 smooth_sigma,
                 morpho_dist
             )
+
+            #####
+            #print "OK"
+            #feature_name, output = func(inp_polygons.next())
+            #out_centerlines.write(output)
+            #sys.exit()
+            #####
+            
             try:
                 feature_count = 0
+
                 for feature_name, output in pool.imap_unordered(
                     func,
                     inp_polygons

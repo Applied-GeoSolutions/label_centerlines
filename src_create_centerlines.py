@@ -26,6 +26,7 @@
 
 from shapely.geometry import (
     shape,
+    Polygon,
     LineString,
     MultiLineString,
     Point,
@@ -41,7 +42,12 @@ import numpy as np
 from scipy.ndimage import filters
 from math import *
 
+from pdb import set_trace
+
 debug_output = {}
+
+# number of longest paths sent to get_least_curved_path()
+NTOP = 5
 
 def get_centerlines_from_geom(
     geometry,
@@ -49,6 +55,7 @@ def get_centerlines_from_geom(
     max_points,
     simplification,
     smooth_sigma,
+    morpho_dist,
     debug=False
     ):
     """
@@ -65,6 +72,7 @@ def get_centerlines_from_geom(
 
     if geometry.geom_type == "MultiPolygon":
         # recursion so that code below operates on Polygon objects
+        # TODO: how could this possibly work?
         centerline_geoms = []
         for subgeom in geometry:
             geom = get_centerlines_from_geom(subgeom, segmentize_maxlen)
@@ -74,12 +82,19 @@ def get_centerlines_from_geom(
         return out_centerlines
 
     else:
-        # Convert Polygon to Linestring
-        if len(geometry.interiors) > 0:
-            boundary = geometry.exterior
-        else:
-            boundary = geometry.boundary
 
+        # dilate and erode the feature to smooth it
+        if morpho_dist:
+            geometry = geometry.buffer(morpho_dist)
+            geometry = geometry.buffer(-morpho_dist)
+
+        # Remove interior polygons
+        if len(geometry.interiors) > 0:
+            geometry = Polygon(geometry.exterior)
+
+        # Convert Polygon to Linestring
+        boundary = geometry.boundary
+            
         if debug:
             debug_output['original_points'] = MultiPoint([
                 point
@@ -94,9 +109,8 @@ def get_centerlines_from_geom(
         # Get points
         points = segmentized.coords
 
-        # Simplify segmentized geometry if necessary. This step is required
-        # as huge geometries slow down the centerline extraction significantly
-
+        # Simplify segmentized geometry if necessary
+        # Huge geometries slow down the centerline extraction significantly
         tolerance = simplification
         while len(points) > max_points:
             # If geometry is too large, apply simplification until geometry
@@ -132,19 +146,39 @@ def get_centerlines_from_geom(
             return None
 
         # Get longest path.
-        longest_paths = get_longest_paths(
-            end_nodes,
-            graph
-            )
+        paths_sorted, path_dists = get_longest_paths(end_nodes, graph)
+        # TODO: maybe can change this back
+        #paths_sorted = get_longest_paths(end_nodes, graph)
 
-        # get least curved path.
-        best_path = get_least_curved_path(longest_paths[:5], vor.vertices)
-
-        #print (best_path == longest_paths[0])
-
-        #best_path = longest_paths[0]
-
+        # get least curved path out of the NTOP longest
+        longest_paths = paths_sorted[:NTOP]
+        best_path = get_least_curved_path(longest_paths, vor.vertices)
         centerline = LineString(vor.vertices[best_path])
+
+        for path in paths_sorted:
+            if path != best_path:
+
+                line = LineString(vor.vertices[path])
+                branches = line.difference(centerline)
+
+                if branches.type != "MultiLineString":
+                    branches = [branches]
+
+                for branch in branches:
+
+                    nodes = set(path).difference(best_path)
+                    nnodes = len(nodes)
+
+                    if nnodes > 1 and branch.length > 30 and centerline.distance(branch) == 0:
+                        
+                        print centerline.length, line.length, branch.length, branch.distance(centerline),\
+                            centerline.distance(branch), line.length - branch.length, branch.type
+
+                        if branch.length <=0:
+                            set_trace()
+                    
+                        centerline = centerline.union(line)
+
         if debug:
             debug_output['centerline'] = centerline
 
@@ -152,14 +186,11 @@ def get_centerlines_from_geom(
         # simplified = centerline.simplify(tolerance)
         # centerline = simplified
 
-
         # Smooth out geometry
         if smooth_sigma > 0.:
             centerline_smoothed = smooth_linestring(centerline, smooth_sigma)
         else:
             centerline_smoothed = centerline
-
-        #out_centerline = centerline_smoothed
 
         return centerline_smoothed
 
@@ -198,11 +229,22 @@ def get_longest_paths(nodes, graph):
             distance = get_path_distance(path, graph)
             paths.append(path)
             distances.append(distance)
-    paths_sorted = [x for (y,x) in sorted(zip(distances, paths), reverse=True)]
+
+    szdp =  sorted(zip(distances, paths), reverse=True)
+    path_dists, paths_sorted = zip(*szdp)
+    return paths_sorted, path_dists
+
+    #paths_sorted = [x for (y,x) in szdp]
+    #path_distances = [y for (y,x) in szdp]
+
+    #paths_sorted = [x for (y,x) in sorted(zip(distances, paths), reverse=True)]
+    #distances = [y for (y,x) in sorted(zip(distances, paths), reverse=True)]
+
     # longest_path = paths_sorted[0]
     # return longest_path
-    return paths_sorted
 
+    #paths_sorted = [x for (y,x) in sorted(zip(distances, paths), reverse=True)]
+    #return paths_sorted
 
 def get_least_curved_path(paths, vertices):
 
