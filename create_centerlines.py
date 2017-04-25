@@ -36,7 +36,7 @@ from src_create_centerlines import get_centerlines_from_geom
 
 from pdb import set_trace
 
-NUMPROC = 10
+NUMPROC = 5
 
 def worker(
     segmentize_maxlen,
@@ -99,13 +99,13 @@ def run(
     simplification,
     smooth_sigma,
     morpho_dist,
-    driver
+    driver,
+    numproc
     ):
 
     extensions = {'ESRI Shapefile': '.shp', 'GeoJSON': '.geojson'}
     if os.path.splitext(output_file)[1] != extensions[driver]:
             output_file += extensions[driver]
-
 
     with fiona.open(input_shp, "r") as inp_polygons:
         out_schema = inp_polygons.schema.copy()
@@ -120,7 +120,7 @@ def run(
             driver=driver
             ) as out_centerlines:
 
-            pool = multiprocessing.Pool(processes=NUMPROC)
+            pool = multiprocessing.Pool(processes=numproc)
             func = partial(
                 worker,
                 segmentize_maxlen,
@@ -130,16 +130,8 @@ def run(
                 morpho_dist
             )
 
-            #####
-            #print "OK"
-            #feature_name, output = func(inp_polygons.next())
-            #out_centerlines.write(output)
-            #sys.exit()
-            #####
-            
             try:
                 feature_count = 0
-
                 for feature_name, output in pool.imap_unordered(
                     func,
                     inp_polygons
@@ -215,7 +207,13 @@ if __name__ == "__main__":
         help="write to 'ESRI Shapefile' or 'GeoJSON' (default)",
         default="ESRI Shapefile"
         #default="GeoJSON"
-    )
+        )
+    parser.add_argument(
+        "--numproc",
+        type=int,
+        help="number of concurrent threads",
+        default=NUMPROC
+        )
     parsed = parser.parse_args(sys.argv[1:])
 
     run(
@@ -226,5 +224,6 @@ if __name__ == "__main__":
         parsed.simplification,
         parsed.smooth,
         parsed.morpho_dist,
-        parsed.output_driver
+        parsed.output_driver,
+        parsed.numproc
     )

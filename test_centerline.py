@@ -29,7 +29,7 @@ def simpletest():
     smooth = 0. # 5.
     segmentize_maxlen = 0.5 # 0.5
     morpho_dist = 2. # 0.
-
+    numproc = 1 # 5
     param = (
         max_points,
         simplification,
@@ -41,7 +41,7 @@ def simpletest():
     paramstr = "_".join([str(p) for p in param])
     output_file = os.path.splitext(input_shp)[0] + "_" + paramstr + ".geojson"
     print output_file
-    
+
     run(
         input_shp,
         output_file,
@@ -50,10 +50,11 @@ def simpletest():
         simplification,
         smooth,
         morpho_dist,
-        output_driver
+        output_driver,
+        numproc
     )
 
-                
+
 def fulltest():
 
     input_shp = "test/output_roads_2.shp"
@@ -64,6 +65,7 @@ def fulltest():
     smooth = (5, 10, 2.5)
     segmentize_maxlen = (0.5, 1.0, 0.25)
     morpho_dist = (0.0, 10.)
+    numproc = 1
 
     params = latin(
         max_points,
@@ -72,7 +74,7 @@ def fulltest():
         segmentize_maxlen,
         morpho_dist
     )
-
+    
     for param in params:
         print param
 
@@ -81,7 +83,7 @@ def fulltest():
          smooth,
          segmentize_maxlen,
          morpho_dist) = param
-
+        
         paramstr = "_".join([str(p) for p in param])
         output_file = os.path.splitext(input_shp)[0] + outstr + ".geojson"
         print output_file
@@ -94,7 +96,8 @@ def fulltest():
             simplification,
             smooth,
             morpho_dist,
-            output_driver
+            output_driver,
+            numproc
         )
          
 if __name__ == "__main__":
