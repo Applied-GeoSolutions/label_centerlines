@@ -28,7 +28,7 @@ def simpletest():
     simplification = 0.05 # 0.05
     smooth = 0. # 5.
     segmentize_maxlen = 0.5 # 0.5
-    morpho_dist = 0. # 0.
+    morpho_dist = 2. # 0.
 
     param = (
         max_points,
