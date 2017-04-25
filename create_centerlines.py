@@ -36,7 +36,9 @@ from src_create_centerlines import get_centerlines_from_geom
 
 from pdb import set_trace
 
-NUMPROC = 5
+NUMPROC = 1
+# TODO: this default only works with projected vector data sets
+MINBRANCHLEN = 30
 
 def worker(
     segmentize_maxlen,
@@ -44,6 +46,7 @@ def worker(
     simplification,
     smooth_sigma,
     morpho_dist,
+    minbranchlen,
     feature
     ):
 
@@ -73,7 +76,8 @@ def worker(
             max_points=max_points,
             simplification=simplification,
             smooth_sigma=smooth_sigma,
-            morpho_dist=morpho_dist
+            morpho_dist=morpho_dist,
+            minbranchlen=minbranchlen
             )
     except TypeError as e:
         print e
@@ -100,7 +104,8 @@ def run(
     smooth_sigma,
     morpho_dist,
     driver,
-    numproc
+    numproc,
+    minbranchlen
     ):
 
     extensions = {'ESRI Shapefile': '.shp', 'GeoJSON': '.geojson'}
@@ -127,7 +132,8 @@ def run(
                 max_points,
                 simplification,
                 smooth_sigma,
-                morpho_dist
+                morpho_dist,
+                minbranchlen
             )
 
             try:
@@ -209,10 +215,10 @@ if __name__ == "__main__":
         #default="GeoJSON"
         )
     parser.add_argument(
-        "--numproc",
-        type=int,
-        help="number of concurrent threads",
-        default=NUMPROC
+        "--minbranchlen",
+        type=float,
+        help="minimum branch length for inclusion in centerline",
+        default=MINBRANCHLEN
         )
     parsed = parser.parse_args(sys.argv[1:])
 
@@ -225,5 +231,6 @@ if __name__ == "__main__":
         parsed.smooth,
         parsed.morpho_dist,
         parsed.output_driver,
-        parsed.numproc
+        parsed.numproc,
+        parsed.minbranchlen
     )

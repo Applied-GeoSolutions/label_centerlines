@@ -30,12 +30,15 @@ def simpletest():
     segmentize_maxlen = 0.5 # 0.5
     morpho_dist = 2. # 0.
     numproc = 1 # 5
+    minbranchlen = 30 # 30
+    
     param = (
         max_points,
         simplification,
         smooth,
         segmentize_maxlen,
-        morpho_dist
+        morpho_dist,
+        minbranchlen
     )
 
     paramstr = "_".join([str(p) for p in param])
@@ -51,7 +54,8 @@ def simpletest():
         smooth,
         morpho_dist,
         output_driver,
-        numproc
+        numproc,
+        minbranchlen
     )
 
 
@@ -66,7 +70,8 @@ def fulltest():
     segmentize_maxlen = (0.5, 1.0, 0.25)
     morpho_dist = (0.0, 10.)
     numproc = 1
-
+    minbranchlen = 30
+    
     params = latin(
         max_points,
         simplification,
@@ -97,7 +102,8 @@ def fulltest():
             smooth,
             morpho_dist,
             output_driver,
-            numproc
+            numproc,
+            minbranchlen
         )
          
 if __name__ == "__main__":

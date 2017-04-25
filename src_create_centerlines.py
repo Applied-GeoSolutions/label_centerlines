@@ -47,6 +47,7 @@ from pdb import set_trace
 debug_output = {}
 
 # number of longest paths sent to get_least_curved_path()
+# TODO: someday this will make something break
 NTOP = 5
 
 def get_centerlines_from_geom(
@@ -56,6 +57,7 @@ def get_centerlines_from_geom(
     simplification,
     smooth_sigma,
     morpho_dist,
+    minbranchlen,
     debug=False
     ):
     """
@@ -82,7 +84,6 @@ def get_centerlines_from_geom(
         return out_centerlines
 
     else:
-
         # dilate and erode the feature to smooth it
         if morpho_dist:
             geometry = geometry.buffer(morpho_dist)
@@ -157,26 +158,21 @@ def get_centerlines_from_geom(
 
         for path in paths_sorted:
             if path != best_path:
-
+                # get the branch geometries
                 line = LineString(vor.vertices[path])
                 branches = line.difference(centerline)
-
+                # branches might have multiple segments
                 if branches.type != "MultiLineString":
                     branches = [branches]
-
                 for branch in branches:
-
                     nodes = set(path).difference(best_path)
                     nnodes = len(nodes)
-
-                    if nnodes > 1 and branch.length > 30 and centerline.distance(branch) == 0:
-                        
-                        print centerline.length, line.length, branch.length, branch.distance(centerline),\
-                            centerline.distance(branch), line.length - branch.length, branch.type
-
+                    # attach the branch if it is long enough
+                    if nnodes > 1 and branch.length > minbranchlen and centerline.distance(branch) == 0:
+                        #print centerline.length, line.length, branch.length, branch.distance(centerline),\
+                        #    centerline.distance(branch), line.length - branch.length, branch.type
                         if branch.length <=0:
-                            set_trace()
-                    
+                            raise Exception, "this shouldn't happen"
                         centerline = centerline.union(line)
 
         if debug:
