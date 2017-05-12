@@ -215,10 +215,10 @@ if __name__ == "__main__":
         #default="GeoJSON"
         )
     parser.add_argument(
-        "--minbranchlen",
-        type=float,
-        help="minimum branch length for inclusion in centerline",
-        default=MINBRANCHLEN
+        "--numproc",
+        type=int,
+        help="number of processors to use",
+        default=NUMPROC
         )
     parsed = parser.parse_args(sys.argv[1:])
 

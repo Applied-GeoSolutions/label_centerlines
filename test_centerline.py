@@ -21,7 +21,8 @@ def latin(*paramsets):
     return tuple(outparams)
 
 def simpletest():
-    input_shp = "test/output_roads_2.shp"
+    #input_shp = "test/output_roads_2.shp"
+    input_shp = "test/polygon005_roads_mixed_dissolved_mts_sj.shp"
     output_driver = "GeoJSON"
 
     max_points = 3000 # 3000
