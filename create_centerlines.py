@@ -39,6 +39,7 @@ from pdb import set_trace
 NUMPROC = 1
 # TODO: this default only works with projected vector data sets
 MINBRANCHLEN = 30
+TINY = 0.0000001
 
 def worker(
     segmentize_maxlen,
@@ -51,7 +52,8 @@ def worker(
     ):
 
     geom = shape(feature['geometry'])
-
+    geom.buffer(TINY)
+    
     for name_field in ["name", "Name", "NAME"]:
         if name_field in feature["properties"]:
             feature_name = feature["properties"][name_field]
@@ -59,15 +61,6 @@ def worker(
         else:
             feature_name = None
     print "processing", feature_name
-
-    #centerlines_geom = get_centerlines_from_geom(
-    #    geom,
-    #    segmentize_maxlen=segmentize_maxlen,
-    #    max_points=max_points,
-    #    simplification=simplification,
-    #    smooth_sigma=smooth_sigma,
-    #    morpho_dist=morpho_dist
-    #)
 
     try:
         centerlines_geom = get_centerlines_from_geom(
