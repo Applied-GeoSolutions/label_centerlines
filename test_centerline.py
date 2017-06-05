@@ -30,9 +30,9 @@ def simpletest():
     smooth = 0. # 5.
     segmentize_maxlen = 0.5 # 0.5
     morpho_dist = 2. # 0.
-    numproc = 1 # 5
+    numproc = 5 # 5
     minbranchlen = 30 # 30
-    
+
     param = (
         max_points,
         simplification,
