@@ -39,7 +39,7 @@ from pdb import set_trace
 NUMPROC = 1
 # TODO: this default only works with projected vector data sets
 MINBRANCHLEN = 30
-TINY = 0.0000001
+
 
 def worker(
     segmentize_maxlen,
@@ -48,19 +48,12 @@ def worker(
     smooth_sigma,
     morpho_dist,
     minbranchlen,
-    feature
-    ):
+    feature):
+
+    feature_name = feature['id']
+    print "processing", feature_name
 
     geom = shape(feature['geometry'])
-    geom.buffer(TINY)
-    
-    for name_field in ["name", "Name", "NAME"]:
-        if name_field in feature["properties"]:
-            feature_name = feature["properties"][name_field]
-            break
-        else:
-            feature_name = None
-    print "processing", feature_name
 
     try:
         centerlines_geom = get_centerlines_from_geom(
@@ -70,8 +63,7 @@ def worker(
             simplification=simplification,
             smooth_sigma=smooth_sigma,
             morpho_dist=morpho_dist,
-            minbranchlen=minbranchlen
-            )
+            minbranchlen=minbranchlen)
     except TypeError as e:
         print e
     except:
@@ -86,7 +78,8 @@ def worker(
             }
         )
     else:
-        return (None, None)
+        return (feature_name, None)
+
 
 def run(
     input_shp,
@@ -111,14 +104,13 @@ def run(
         if os.path.exists(output_file):
             os.remove(output_file)
         with fiona.open(
-            output_file,
-            "w",
-            schema=out_schema,
-            crs=inp_polygons.crs,
-            driver=driver
+                output_file,
+                "w",
+                schema=out_schema,
+                crs=inp_polygons.crs,
+                driver=driver
             ) as out_centerlines:
 
-            pool = multiprocessing.Pool(processes=numproc)
             func = partial(
                 worker,
                 segmentize_maxlen,
@@ -129,31 +121,29 @@ def run(
                 minbranchlen
             )
 
-            try:
-                feature_count = 0
-                for feature_name, output in pool.imap_unordered(
-                    func,
-                    inp_polygons
-                    ):
-                    feature_count += 1
+            feature_count = 0
+            if numproc == 1:
+                for inp_polygon in inp_polygons:
+                    feature_name, output = func(inp_polygon)
+                    if output is not None:
+                        out_centerlines.write(output)
+                        print "written feature %s: %s" % \
+                            (feature_count, feature_name)
+                        feature_count += 1
+                    else:
+                        print "Invalid output for feature", feature_name        
+
+            else:
+                pool = multiprocessing.Pool(processes=numproc)
+                for feature_name, output in pool.imap_unordered(func, inp_polygons):
                     if output:
                         out_centerlines.write(output)
-                        print "written feature %s: %s" %(
-                            feature_count,
-                            feature_name
-                            )
+                        print "written feature %s: %s" % \
+                            (feature_count, feature_name)
+                        feature_count += 1
                     else:
                         print "Invalid output for feature", feature_name
-            except KeyboardInterrupt:
-                print "Caught KeyboardInterrupt, terminating workers"
-                pool.terminate()
-            except Exception as e:
-                if feature_name:
-                    print ("%s: FAILED (%s)" %(feature_name, e))
-                else:
-                    print ("feature: FAILED (%s)" %(e))
-                raise
-            finally:
+
                 pool.close()
                 pool.join()
 

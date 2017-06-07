@@ -50,6 +50,9 @@ debug_output = {}
 # TODO: someday this will make something break
 NTOP = 5
 
+# this is for the geometry cleaning
+TINY = 1.e-9
+
 def get_centerlines_from_geom(
     geometry,
     segmentize_maxlen,
@@ -84,6 +87,10 @@ def get_centerlines_from_geom(
         return out_centerlines
 
     else:
+
+        # clean the geometry
+        geometry = geometry.buffer(TINY)
+
         # dilate and erode the feature to smooth it
         if morpho_dist:
             geometry = geometry.buffer(morpho_dist)
@@ -336,8 +343,3 @@ def multilinestring_from_voronoi(vor, geometry):
                 linestrings.append(linestring)
     multilinestring = MultiLineString(linestrings)
     return multilinestring
-
-
-
-if __name__ == "__main__":
-        main(sys.argv[1:])
