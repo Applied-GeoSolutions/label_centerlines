@@ -12,17 +12,16 @@ timberdana_trails = "005/skidtrails_mixed_lt050_dissolve_multiparts_idsep.shp"
 rodamas_roads = "008/roads_mixed_gtet050_dissolve_multiparts_idsep.shp"
 rodamas_trails = "008/skidtrails_mixed_lt050_dissolve_multiparts_idsep.shp"
 
-
 def makelines(input_shp):
 
     output_driver = "GeoJSON"
 
-    max_points = 3000 # 3000
-    simplification = 0.05 # 0.05
+    max_points = 5000 # 3000
+    simplification = 0.0001 # 0.05
     smooth = 0. # 5.
     segmentize_maxlen = 0.5 # 0.5
     morpho_dist = 1. # 0.
-    numproc = 5 # 5
+    numproc = 1 # 5
     minbranchlen = 30 # 30
 
     param = (

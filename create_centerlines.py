@@ -52,31 +52,32 @@ def worker(
 
     feature_name = feature['id']
     print "processing", feature_name
-
     geom = shape(feature['geometry'])
 
     try:
         centerlines_geom = get_centerlines_from_geom(
             geom,
-            segmentize_maxlen=segmentize_maxlen,
-            max_points=max_points,
-            simplification=simplification,
-            smooth_sigma=smooth_sigma,
-            morpho_dist=morpho_dist,
-            minbranchlen=minbranchlen)
+            feature_name,
+            segmentize_maxlen,
+            max_points,
+            simplification,
+            smooth_sigma,
+            morpho_dist,
+            minbranchlen)
+
+    # why pass on a type error?
     except TypeError as e:
+        print ('TypeError: %s' % feature_name) + e
+    except Exception, e:
+        print feature_name + "some other error"
         print e
-    except:
+        #set_trace()
         raise
 
     if centerlines_geom:
-        return (
-            feature_name,
-            {
-                'properties': feature['properties'],
-                'geometry': mapping(centerlines_geom)
-            }
-        )
+        output = {'properties': feature['properties'],
+                  'geometry': mapping(centerlines_geom)}
+        return (feature_name, output)
     else:
         return (feature_name, None)
 
@@ -91,8 +92,7 @@ def run(
     morpho_dist,
     driver,
     numproc,
-    minbranchlen
-    ):
+    minbranchlen):
 
     extensions = {'ESRI Shapefile': '.shp', 'GeoJSON': '.geojson'}
     if os.path.splitext(output_file)[1] != extensions[driver]:
@@ -123,6 +123,7 @@ def run(
 
             feature_count = 0
             if numproc == 1:
+                print "single threaded"
                 for inp_polygon in inp_polygons:
                     feature_name, output = func(inp_polygon)
                     if output is not None:
@@ -134,6 +135,7 @@ def run(
                         print "Invalid output for feature", feature_name        
 
             else:
+                print "multithreaded"
                 pool = multiprocessing.Pool(processes=numproc)
                 for feature_name, output in pool.imap_unordered(func, inp_polygons):
                     if output:

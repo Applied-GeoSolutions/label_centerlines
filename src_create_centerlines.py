@@ -24,15 +24,8 @@
 # THE SOFTWARE.
 #-------------------------------------------------------------------------------
 
-from shapely.geometry import (
-    shape,
-    Polygon,
-    LineString,
-    MultiLineString,
-    Point,
-    MultiPoint,
-    mapping
-    )
+from shapely.geometry import shape, Polygon, LineString,\
+    MultiLineString, Point, MultiPoint, mapping
 from shapely.wkt import loads
 import ogr
 from scipy.spatial import Voronoi
@@ -48,121 +41,156 @@ debug_output = {}
 
 # number of longest paths sent to get_least_curved_path()
 # TODO: someday this will make something break
-NTOP = 5
+NTOP = 10
 
 # this is for the geometry cleaning
 TINY = 1.e-9
 
 def get_centerlines_from_geom(
     geometry,
+    feature_name,
     segmentize_maxlen,
     max_points,
     simplification,
     smooth_sigma,
     morpho_dist,
     minbranchlen,
-    debug=False
-    ):
+    debug=False):
     """
-    Returns centerline (for Polygon) or centerlines (for MultiPolygons) as
-    LineString or MultiLineString geometries.
+    Returns centerline (for Polygon) 
+    or centerlines (for MultiPolygons)
+    as LineString or MultiLineString geometries.
     """
 
     if geometry.geom_type not in ["MultiPolygon", "Polygon"]:
         raise TypeError(
-            "Geometry type must be Polygon or MultiPolygon, not %s" %(
+            "Geom type must be Polygon or MultiPolygon, not %s" %\
                 geometry.geom_type
-                )
-            )
+        )
 
     if geometry.geom_type == "MultiPolygon":
         # recursion so that code below operates on Polygon objects
         # TODO: how could this possibly work?
+        #print "we have a multipolygon"
         centerline_geoms = []
         for subgeom in geometry:
-            geom = get_centerlines_from_geom(subgeom, segmentize_maxlen)
+            geom = get_centerlines_from_geom(
+                subgeom,
+                segmentize_maxlen,
+                max_points,
+                simplification,
+                smooth_sigma,
+                morpho_dist,
+                minbranchlen,
+                debug=False)
             if geom is not None:
                 centerline_geoms.append(geom)
         out_centerlines = MultiLineString(centerline_geoms)
         return out_centerlines
 
     else:
-
         # clean the geometry
         geometry = geometry.buffer(TINY)
 
+        # the first num_inner interior rings are OK
+        interiors = geometry.interiors
+        num_inner = len(interiors)
+        
         # dilate and erode the feature to smooth it
         if morpho_dist:
+            #print "apply morpho smoothing"
             geometry = geometry.buffer(morpho_dist)
             geometry = geometry.buffer(-morpho_dist)
 
-        # Remove interior polygons
+        # remove interior polygons created by the smoother
+        num_inner2 = len(geometry.interiors)
+        if num_inner2 > num_inner:
+            interiors = geometry.interiors
+            nbad = num_inner2 - num_inner
+            for i in range(1,nbad+1):
+                print len(interiors), len(geometry.interiors)
+                geometry = geometry.union(Polygon(interiors[-i]))
+
+        # make cuts in the remaining rings
         if len(geometry.interiors) > 0:
-            geometry = Polygon(geometry.exterior)
+            #print "there are inner rings"
+            interiors = geometry.interiors
+            exterior = geometry.exterior
+            for interior in interiors:
+                centroid = interior.centroid
+                dproj = exterior.project(centroid)
+                pproj = exterior.interpolate(dproj)
+                line = LineString([centroid, pproj])
+                thickline = line.buffer(0.0001)
+                geometry = geometry.difference(thickline)
+            assert len(geometry.interiors) == 0, len(geometry.interiors)
 
-        # Convert Polygon to Linestring
+        # convert Polygon to Linestring
+        print "convert polygon to linestring"
         boundary = geometry.boundary
-            
-        if debug:
-            debug_output['original_points'] = MultiPoint([
-                point
-                for point in list(boundary.coords)
-            ])
-
-        # Convert to OGR object and segmentize
+        
+        # convert to OGR object and segmentize
+        #print "convert to OGR object and segmentize"
         ogr_boundary = ogr.CreateGeometryFromWkb(boundary.wkb)
         ogr_boundary.Segmentize(segmentize_maxlen)
         segmentized = loads(ogr_boundary.ExportToWkt())
 
-        # Get points
+        # get points from the polygon
+        #print "get points from the polygon"
         points = segmentized.coords
 
-        # Simplify segmentized geometry if necessary
-        # Huge geometries slow down the centerline extraction significantly
+        # simplify segmentized geometry if necessary
+        # huge geometries slow down the centerline extraction
+        #print "simplify"
+
         tolerance = simplification
         while len(points) > max_points:
-            # If geometry is too large, apply simplification until geometry
-            # is simplified enough (indicated by the "max_points" value)
+            #print len(points)
+            # if geometry is too large, apply simplification
+            # until geometry is simplified enough
+            # (indicated by the "max_points" value)
             tolerance += simplification
             simplified = boundary.simplify(tolerance)
             points = simplified.coords
         if debug:
-            debug_output['segmentized_points'] = MultiPoint([
-                point
-                for point in points
-            ])
-
-        # Calculate Voronoi diagram.
+            debug_output['segmentized_points'] = MultiPoint(
+                [point for point in points])
+        
+        # calculate Voronoi diagram
+        print "calculate Voronoi diagram"
         vor = Voronoi(points)
+
         if debug:
             debug_output['voronoi'] = multilinestring_from_voronoi(
-                vor,
-                geometry
-            )
+                vor, geometry)
 
-        # The next three steps are the most processing intensive and probably
-        # not the most efficient method to get the skeleton centerline.
-        # If you have any recommendations, I would be very happy to know.
+        # the next three steps are the most processing intensive and probably
+        # not the most efficient method to get the skeleton centerline
 
-        # Convert to networkx graph.
+        # convert to networkx graph
+        #print "convert to networkx graph"
         graph = graph_from_voronoi(vor, geometry)
-
-        # Get end nodes from graph.
+        
+        # get end nodes from graph
+        #print "get end nodes from graph"
         end_nodes = get_end_nodes(graph)
 
         if len(end_nodes) < 2:
             return None
 
-        # Get longest path.
+        # get longest path SLOW
+        #print "get longest path"
         paths_sorted, path_dists = get_longest_paths(end_nodes, graph)
         # TODO: maybe can change this back
         #paths_sorted = get_longest_paths(end_nodes, graph)
 
         # get least curved path out of the NTOP longest
+        #print "get least curved path out of the NTOP longest"
         longest_paths = paths_sorted[:NTOP]
         best_path = get_least_curved_path(longest_paths, vor.vertices)
         centerline = LineString(vor.vertices[best_path])
 
+        #print "get the centerlines"
         for path in paths_sorted:
             if path != best_path:
                 # get the branch geometries
@@ -175,9 +203,8 @@ def get_centerlines_from_geom(
                     nodes = set(path).difference(best_path)
                     nnodes = len(nodes)
                     # attach the branch if it is long enough
-                    if nnodes > 1 and branch.length > minbranchlen and centerline.distance(branch) == 0:
-                        #print centerline.length, line.length, branch.length, branch.distance(centerline),\
-                        #    centerline.distance(branch), line.length - branch.length, branch.type
+                    if nnodes > 1 and branch.length > minbranchlen \
+                       and centerline.distance(branch) == 0:
                         if branch.length <=0:
                             raise Exception, "this shouldn't happen"
                         centerline = centerline.union(line)
@@ -217,9 +244,7 @@ def smooth_linestring(linestring, smooth_sigma):
 
 
 def get_longest_paths(nodes, graph):
-    """
-    Returns longest path of all possible paths between a list of nodes.
-    """
+    """ returns longest path of all possible paths between a list of nodes """
     paths = []
     distances = []
     possible_paths = list(combinations(nodes, r=2))
@@ -228,7 +253,7 @@ def get_longest_paths(nodes, graph):
             path = nx.shortest_path(graph, node1, node2, "weight")
         except Exception,e:
             path = []
-        if len(path)>1:
+        if len(path) > 1:
             distance = get_path_distance(path, graph)
             paths.append(path)
             distances.append(distance)
@@ -237,20 +262,8 @@ def get_longest_paths(nodes, graph):
     path_dists, paths_sorted = zip(*szdp)
     return paths_sorted, path_dists
 
-    #paths_sorted = [x for (y,x) in szdp]
-    #path_distances = [y for (y,x) in szdp]
-
-    #paths_sorted = [x for (y,x) in sorted(zip(distances, paths), reverse=True)]
-    #distances = [y for (y,x) in sorted(zip(distances, paths), reverse=True)]
-
-    # longest_path = paths_sorted[0]
-    # return longest_path
-
-    #paths_sorted = [x for (y,x) in sorted(zip(distances, paths), reverse=True)]
-    #return paths_sorted
 
 def get_least_curved_path(paths, vertices):
-
     angle_sums = []
     for path in paths:
         path_angles = get_path_angles(path, vertices)
@@ -286,26 +299,20 @@ def get_angle(line1, line2):
     return np.degrees(angle)
 
 def get_path_distance(path, graph):
-    """
-    Returns weighted path distance.
-    """
+    """ return weighted path distance """
     distance = 0
-    for i,w in enumerate(path):
-        j=i+1
-        if j<len(path):
-            distance += round(graph.edge[path[i]][path[j]]["weight"], 6)
+    for i, w in enumerate(path):
+        j = i + 1
+        if j < len(path):
+            distance += round(graph.edge[path[i]][path[j]]['weight'], 6)
     return distance
 
 
 def get_end_nodes(graph):
-    """
-    Returns list of nodes with just one neighbor node.
-    """
+    """ return list of nodes with just one neighbor node """
     nodelist = [
-        i
-        for i in graph.nodes_iter()
-        if len(graph.neighbors(i))==1
-        ]
+        i for i in graph.nodes_iter() if len(graph.neighbors(i))==1
+    ]
     return nodelist
 
 
