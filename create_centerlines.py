@@ -56,30 +56,23 @@ def worker(
 
     try:
         centerlines_geom = get_centerlines_from_geom(
-            geom,
-            feature_name,
-            segmentize_maxlen,
-            max_points,
-            simplification,
-            smooth_sigma,
-            morpho_dist,
-            minbranchlen)
-
+            geom, feature_name, segmentize_maxlen, max_points, simplification,
+            smooth_sigma, morpho_dist, minbranchlen)
     # why pass on a type error?
     except TypeError as e:
-        print ('TypeError: %s' % feature_name) + e
+        print e
+        print "TypeError: %s" % feature_name
     except Exception, e:
         print feature_name + "some other error"
         print e
-        #set_trace()
         raise
-
-    if centerlines_geom:
-        output = {'properties': feature['properties'],
-                  'geometry': mapping(centerlines_geom)}
-        return (feature_name, output)
     else:
-        return (feature_name, None)
+        if centerlines_geom:
+            output = {'properties': feature['properties'],
+                      'geometry': mapping(centerlines_geom)}
+            return (feature_name, output)
+        else:
+            return (feature_name, None)
 
 
 def run(
@@ -132,8 +125,7 @@ def run(
                             (feature_count, feature_name)
                         feature_count += 1
                     else:
-                        print "Invalid output for feature", feature_name        
-
+                        print "Invalid output for feature", feature_name
             else:
                 print "multithreaded"
                 pool = multiprocessing.Pool(processes=numproc)

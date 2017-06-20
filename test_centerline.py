@@ -12,6 +12,10 @@ timberdana_trails = "005/skidtrails_mixed_lt050_dissolve_multiparts_idsep.shp"
 rodamas_roads = "008/roads_mixed_gtet050_dissolve_multiparts_idsep.shp"
 rodamas_trails = "008/skidtrails_mixed_lt050_dissolve_multiparts_idsep.shp"
 
+#START_DIR = "/home/rbraswell/repo/label_centerlines/test"
+#test_file = "skidtrails_mixed_lt050_dissolve_multiparts_idsep_subset3.shp"
+
+
 def makelines(input_shp):
 
     output_driver = "GeoJSON"
@@ -21,7 +25,7 @@ def makelines(input_shp):
     smooth = 0. # 5.
     segmentize_maxlen = 0.5 # 0.5
     morpho_dist = 1. # 0.
-    numproc = 1 # 5
+    numproc = 5 # 5
     minbranchlen = 30 # 30
 
     param = (
@@ -30,8 +34,7 @@ def makelines(input_shp):
         smooth,
         segmentize_maxlen,
         morpho_dist,
-        minbranchlen
-    )
+        minbranchlen)
 
     paramstr = "_".join([str(p) for p in param])
     output_file = os.path.splitext(input_shp)[0] + "_" + paramstr + ".geojson"
@@ -52,6 +55,7 @@ def makelines(input_shp):
 
 
 if __name__ == "__main__":
-
+    #input_shp = os.path.join(START_DIR, test_file)
+    
     input_shp = os.path.join(START_DIR, rodamas_trails)
     makelines(input_shp)
