@@ -41,17 +41,19 @@ from pdb import set_trace
 # TODO: someday this will make something break
 NTOP = 10
 
+MIN_AREA = 4.0
+
 # this is for the geometry cleaning
 TINY = 1.e-9
 
 
-#import fiona
-#def write_shapes(geoms, filename):
-#    print "writing", filename
-#    schema = {'geometry': 'Polygon', 'properties': {'id': 'int'}}    
-#    with fiona.open(filename, 'w', 'ESRI Shapefile', schema) as c:
-#        for i, geom in enumerate(geoms):
-#            c.write({'geometry': mapping(geom), 'properties': {'id': i}})
+import fiona
+def write_shapes(geoms, filename):
+    print "writing", filename
+    schema = {'geometry': geoms[0].geom_type, 'properties': {'id': 'int'}}    
+    with fiona.open(filename, 'w', 'ESRI Shapefile', schema) as c:
+        for i, geom in enumerate(geoms):
+            c.write({'geometry': mapping(geom), 'properties': {'id': i}})
 
 
 def get_centerlines_from_geom(
@@ -67,8 +69,27 @@ def get_centerlines_from_geom(
             "Geom type must be Polygon or MultiPolygon, not %s" %\
                 geometry.geom_type)
 
+    if geometry.area < MIN_AREA:
+        return None
+    
+    # clean the geometry
+    geometry = geometry.buffer(TINY)
+
+    # the first num_inner interior rings are OK
+    #interiors = geometry.interiors
+    #num_inner = len(interiors)
+
+    # dilate and erode the feature to smooth it
+    if morpho_dist and not smoothed:
+        print "smoothing", morpho_dist
+        geometry = geometry.buffer(-morpho_dist)
+        geometry = geometry.buffer(morpho_dist)
+        smoothed = True
+
+    
     if geometry.geom_type == "MultiPolygon":
         # recursion so that code below operates on Polygon objects
+        print "recursing", len(geometry)
         centerline_geoms = []
         for subgeom in geometry:
             geom = get_centerlines_from_geom(
@@ -76,25 +97,21 @@ def get_centerlines_from_geom(
                 simplification, smooth_sigma, morpho_dist, minbranchlen,
                 smoothed)
             if geom is not None:
-                centerline_geoms.extend([g for g in geom])
-        out_centerlines = MultiLineString(centerline_geoms)
+                if geom.geom_type == "LineString":
+                    centerline_geoms.append(geom)
+                else:
+                    centerline_geoms.extend([g for g in geom])
+        try:
+            out_centerlines = MultiLineString(centerline_geoms)
+        except TypeError, e:
+            print e
+            out_centerlines = LineString(centerline_geoms)
+        except Exception, e:
+            print e
         return out_centerlines
 
     else:
-        # clean the geometry
-        geometry = geometry.buffer(TINY)
-
-        # the first num_inner interior rings are OK
-        interiors = geometry.interiors
-        num_inner = len(interiors)
-        
-        # dilate and erode the feature to smooth it
-        if morpho_dist and not smoothed:
-            print "smoothing", morpho_dist
-            geometry = geometry.buffer(morpho_dist)
-            geometry = geometry.buffer(-morpho_dist)
-            smoothed = True
-
+        """
         # remove interior created by the smoother
         num_inner2 = len(geometry.interiors)
         print "interior rings", num_inner, num_inner2
@@ -105,8 +122,9 @@ def get_centerlines_from_geom(
             for i in range(1,nbad+1):
                 geometry = geometry.union(Polygon(interiors[-i]))
                 print len(interiors), len(geometry.interiors)
+        """
 
-        # make cuts in the remaining rings
+        # make cuts to interior rings
         if len(geometry.interiors) > 0:
             print "cutting interior rings", len(geometry.interiors)
             interiors = geometry.interiors
@@ -119,29 +137,42 @@ def get_centerlines_from_geom(
                 thickline = line.buffer(0.0001)
                 geometry = geometry.difference(thickline)
 
+        if geometry.geom_type == "Polygon":
+            print "final geometry.interiors", len(geometry.interiors)
+
+        print "done cutting"
+        
         if geometry.geom_type == "MultiPolygon":
             # recursion so that code below operates on Polygon objects
-            print "cuts created multiple polygons", len(geometry)
+            print "recursing - cuts created multiple polygons", len(geometry)
             centerline_geoms = []
             for subgeom in geometry:
                 print "subgeom.area", subgeom.area
-                #write_shapes([subgeom], 'problem_subgeom.shp')            
                 geom = get_centerlines_from_geom(
                     subgeom, feature_name, segmentize_maxlen, max_points,
                     simplification, smooth_sigma, morpho_dist,
                     minbranchlen, smoothed)
                 if geom is not None:
-                    centerline_geoms.extend([g for g in geom])
+                    if geom.geom_type == "LineString":
+                        centerline_geoms.append(geom)
+                    else:
+                        centerline_geoms.extend([g for g in geom])
             try:
                 out_centerlines = MultiLineString(centerline_geoms)
-            except:
-                raise Exception, "multilinestring creation failed"
+            except TypeError, e:
+                print e
+                out_centerlines = LineString(centerline_geoms)
+            except Exception, e:
+                print e
             return out_centerlines
+
         else:
+            print "not multipolygon"
             assert len(geometry.interiors) == 0, len(geometry.interiors)
 
         # convert Polygon to Linestring
         boundary = geometry.boundary
+        print "boundary.length", boundary.length
         
         # convert to OGR object and segmentize
         ogr_boundary = ogr.CreateGeometryFromWkb(boundary.wkb)
@@ -176,6 +207,7 @@ def get_centerlines_from_geom(
         end_nodes = get_end_nodes(graph)
 
         if len(end_nodes) < 2:
+            print "not enough nodes"
             return None
 
         # get longest path SLOW
@@ -191,7 +223,8 @@ def get_centerlines_from_geom(
         centerline = LineString(vor.vertices[best_path])
 
         print "for path in paths_sorted"
-        for path in paths_sorted:
+        
+        for i,path in enumerate(paths_sorted):
             if path != best_path:
                 # get the branch geometries
                 line = LineString(vor.vertices[path])
@@ -199,6 +232,7 @@ def get_centerlines_from_geom(
                 # branches might have multiple segments
                 if branches.type != "MultiLineString":
                     branches = [branches]
+                
                 for branch in branches:
                     nodes = set(path).difference(best_path)
                     nnodes = len(nodes)
@@ -208,7 +242,7 @@ def get_centerlines_from_geom(
                         if branch.length <=0:
                             raise Exception, "this shouldn't happen"
                         centerline = centerline.union(line)
-
+        
         # smooth out geometry
         if smooth_sigma > 0.:
             centerline_smoothed = smooth_linestring(centerline, smooth_sigma)

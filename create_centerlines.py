@@ -58,14 +58,12 @@ def worker(
         centerlines_geom = get_centerlines_from_geom(
             geom, feature_name, segmentize_maxlen, max_points, simplification,
             smooth_sigma, morpho_dist, minbranchlen)
-    # why pass on a type error?
     except TypeError as e:
         print e
         print "TypeError: %s" % feature_name
     except Exception, e:
-        print feature_name + "some other error"
         print e
-        raise
+        print "some other Error: %s" % feature_name
     else:
         if centerlines_geom:
             output = {'properties': feature['properties'],
